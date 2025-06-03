@@ -1,0 +1,47 @@
+<!DOCTYPE HTML>
+<!--
+By: Matheus C. Fernandes
+Fernandes Template
+-->
+<html>
+	
+	<head>
+		<!-- Global site tag (gtag.js) - Google Analytics -->
+		<script async src="https://www.googletagmanager.com/gtag/js?id=UA-50387353-12"></script>
+		<script>
+		  window.dataLayer = window.dataLayer || [];
+		  function gtag(){dataLayer.push(arguments);}
+		  gtag('js', new Date());
+
+		  gtag('config', 'UA-50387353-12');
+		</script>
+
+		<title>Matheus C. Fernandes Git File Sharing Center - CFA Exam 1</title>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+		<link rel="stylesheet" href="assets/css/main.css" />
+		<!--[if lte IE 9]><link rel="stylesheet" href="assets/css/ie9.css" /><![endif]-->
+		<noscript><link rel="stylesheet" href="assets/css/noscript.css" /></noscript>
+		<link rel="shortcut icon" href="favicon.ico" type="image/x-icon" />
+
+	</head>
+	<body>
+	<!-- <button type="button" onclick="alert('Hello world!')">Click Me!</button> -->
+	<h1 style="text-align:center;">CFA Exam 1 Notes</h1>
+	
+	<center>
+		<button type="button" onclick="location.href='https://git.fer.me/'">Home</button>
+		<script>
+            var loc = "https://docs.google.com/document/d/1WaiVZN_8OhIsHjHPyedZcxT6V8IDwXCRmFRcmcSchIc";
+            document.write('<button type="button" onclick=location.href=\'' + loc + '/export?format=pdf\'>Download PDF</button>');
+			document.write('<button type="button" onclick=location.href=\'' + loc + '/export?format=docx\'>Download DOCX</button>');
+			document.write('<button type="button" onclick=location.href=\'' + loc + '/edit\'>Google Doc</button>');
+        </script>
+    </center>	
+
+	<script>
+		document.write('<iframe src="' + loc + '/preview" style="width: 100%; height: 85vh"><p>Your browser does not support iframes.</p></iframe>');
+	</script>
+
+</body>
+</html>

@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SABR Interest Rate Modeling: Interactive Guide</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <script>
+        MathJax = {
+          tex: {
+            inlineMath: [['$', '$'], ['\\(', '\\)']],
+            displayMath: [['$$', '$$'], ['\\[', '\\]']]
+          }
+        };
+      </script>
+      <script type="text/javascript" id="MathJax-script" async
+        src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
+      </script>
+    <!-- Visualization & Content Choices: 
+        - Intro: Interactive list for pricing factors (Inform), Chart.js for Volatility Smile (Compare).
+        - SABR Formulation: HTML for SDEs (Inform), HTML table for parameters (Organize), Illustrative Chart.js charts for parameter impacts (Inform/Explore).
+        - Applying SABR: HTML for formulas (Inform), HTML/CSS diagram for pricing flow (Organize).
+        - Calibration: Interactive list for inputs (Inform), HTML/CSS diagram for process (Organize), Expandable list for challenges (Inform).
+        - SABR vs. Black: HTML table (Compare).
+        - All charts use Chart.js (Canvas). Diagrams use HTML/CSS. NO SVG/Mermaid. Justification: Maximize clarity and engagement within SPA constraints.
+    -->
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #F5F5F5; color: #333333; }
+        .content-section { background-color: #FFFFFF; padding: 2rem; margin-bottom: 2rem; border-radius: 0.5rem; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        h1, h2, h3 { color: #006699; }
+        nav a { padding: 0.5rem 1rem; border-radius: 0.25rem; transition: background-color 0.3s; }
+        nav a:hover, nav a.active { background-color: #006699; color: #FFFFFF; }
+        .chart-container { position: relative; width: 100%; max-width: 600px; margin-left: auto; margin-right: auto; height: 300px; max-height: 350px; }
+        @media (min-width: 768px) { .chart-container { height: 350px; max-height: 400px; } }
+        .formula { background-color: #E8F4F8; padding: 1rem; border-radius: 0.25rem; font-family: 'Courier New', Courier, monospace; overflow-x: auto; }
+        .parameter-table th { background-color: #006699; color: #FFFFFF; padding: 0.75rem; text-align: left; }
+        .parameter-table td { padding: 0.75rem; border-bottom: 1px solid #DDDDDD; }
+        .flowchart-step { border: 2px solid #FF9900; background-color: #FFF8E1; padding: 0.75rem; border-radius: 0.5rem; text-align: center; margin-bottom: 0.5rem; }
+        .flowchart-arrow { font-size: 1.5rem; color: #FF9900; text-align: center; }
+        .interactive-list-item { cursor: pointer; padding: 0.5rem; border-bottom: 1px solid #EEE; }
+        .interactive-list-item:hover { background-color: #E8F4F8; }
+        .details { display: none; padding-left: 1rem; margin-top: 0.5rem; border-left: 2px solid #FF9900; background-color: #FFF8F1; }
+    </style>
+</head>
+<body class="leading-relaxed">
+
+    <nav class="bg-white shadow-md sticky top-0 z-50 p-4">
+        <div class="container mx-auto flex flex-wrap justify-center items-center space-x-2 md:space-x-4 text-sm">
+            <a href="#section1" class="nav-link">1. Intro & Swaptions</a>
+            <a href="#section2" class="nav-link">2. SABR Model</a>
+            <a href="#section3" class="nav-link">3. SABR Pricing</a>
+            <a href="#section4" class="nav-link">4. Calibration</a>
+            <a href="#section5" class="nav-link">5. Comparisons</a>
+        </div>
+    </nav>
+
+    <div class="container mx-auto p-4 md:p-8 mt-4">
+        <header class="text-center mb-12">
+            <h1 class="text-4xl font-bold mb-2">SABR Interest Rate Modeling for Swaption Pricing</h1>
+            <p class="text-xl text-gray-600">An Interactive Exploration</p>
+        </header>
+
+        <section id="section1" class="content-section">
+            <h2 class="text-3xl font-semibold mb-6">1. Introduction to Swaptions & Need for Advanced Models</h2>
+            <p class="mb-4 text-gray-700">Interest rate swaptions are pivotal for managing interest rate risk. Their valuation is challenging due to complex volatility behavior. This section introduces swaptions, their characteristics, and why models like SABR are necessary.</p>
+            
+            <h3 class="text-2xl font-semibold mb-3 mt-6">1.1 Defining Interest Rate Swaptions</h3>
+            <p class="mb-3 text-gray-700">A swaption (swap option) gives the right, not obligation, to enter an interest rate swap. Key types include Payer, Receiver, European, American, and Bermudan. Settlement can be physical or cash.</p>
+            <h4 class="text-xl font-semibold my-3">Key Pricing Factors:</h4>
+            <ul id="pricingFactorsList" class="list-none space-y-1">
+                <li class="interactive-list-item" data-details="Payer or receiver; European, American, or Bermudan exercise style.">1. Type of Option</li>
+                <li class="interactive-list-item" data-details="Notional, frequencies, strike rate, floating rate, day counts.">2. Terms of Underlying Swap</li>
+                <li class="interactive-list-item" data-details="Period from effective date to option expiration.">3. Swaption Term</li>
+                <li class="interactive-list-item" data-details="Pre-agreed fixed rate of swap. Lower strike (payer) or higher strike (receiver) generally means higher premium.">4. Swaption Strike Rate</li>
+                <li class="interactive-list-item" data-details="Longer time usually means higher premium due to uncertainty.">5. Time to Expiration</li>
+                <li class="interactive-list-item" data-details="Current rates and future expectations heavily influence value.">6. Current & Expected Future Rates</li>
+                <li class="interactive-list-item" data-details="Crucial. Higher volatility increases in-the-money probability, thus premium. SABR quantifies this.">7. Volatility of Underlying Forward Swap Rate</li>
+                <li class="interactive-list-item" data-details="Influences premium, especially for long-dated OTCs.">8. Credit Quality of Counterparties</li>
+            </ul>
+            <div id="pricingFactorDetails" class="details p-3 mt-2 bg-blue-50 rounded">Select a factor to see details.</div>
+
+            <h3 class="text-2xl font-semibold mb-3 mt-8">1.2 Limitations of Simpler Models (e.g., Black-Scholes/Black-76)</h3>
+            <p class="mb-3 text-gray-700">Constant volatility models like Black-76 fail to capture the "volatility smile/skew" seen in markets, where options with different strikes but same maturity have different implied volatilities.</p>
+            <div class="chart-container my-6">
+                <canvas id="volatilitySmileChart"></canvas>
+            </div>
+            <p class="text-sm text-center text-gray-600 mb-4">Chart: Illustrative Volatility Smile vs. Constant Volatility.</p>
+            <p class="text-gray-700">This leads to: mispricing of OTM/ITM options, inconsistent hedging, inability to price smile-sensitive products, and issues with negative rates for lognormal versions.</p>
+
+            <h3 class="text-2xl font-semibold mb-3 mt-8">1.3 Introduction to Stochastic Volatility and SABR's Role</h3>
+            <p class="text-gray-700">Stochastic volatility models treat volatility as a random process. The SABR (Stochastic Alpha, Beta, Rho) model, by Hagan et al. (2002), is a leading model for interest rate derivatives. It calculates a consistent implied volatility, which is then used in a Black-like formula to price swaptions, effectively capturing the smile/skew. Hagan's analytical approximation for implied volatility is key to its practicality.</p>
+        </section>
+
+        <section id="section2" class="content-section">
+            <h2 class="text-3xl font-semibold mb-6">2. The SABR Model: Mathematical Formulation & Parameters</h2>
+            <h3 class="text-2xl font-semibold mb-3">2.1 Stochastic Differential Equations (SDEs)</h3>
+            <p class="text-gray-700 mb-2">SABR models a forward rate ($F_t$) and its volatility ($\sigma_t$):</p>
+            <div class="formula mb-2">1. $dF_t = \sigma_t (F_t)^\beta dW_1(t)$</div>
+            <div class="formula mb-2">2. $d\sigma_t = \nu \sigma_t dW_2(t)$</div>
+            <div class="formula mb-4">3. $dW_1(t)dW_2(t) = \rho dt$</div>
+            <p class="text-gray-700">Parameters: $\alpha = \sigma_0$ (initial volatility), $\beta$ (elasticity), $\rho$ (correlation), $\nu$ (vol-of-vol).</p>
+
+            <h3 class="text-2xl font-semibold mb-3 mt-8">2.2 Understanding SABR Parameters</h3>
+            <div class="overflow-x-auto">
+                <table class="w-full parameter-table my-4">
+                    <thead>
+                        <tr>
+                            <th>Parameter</th><th>Symbol(s)</th><th>Description</th><th>Primary Impact on Smile</th><th>Typical Range</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>Initial Volatility</td><td>$\alpha, \sigma_0$</td><td>Initial instantaneous vol</td><td>Overall height / ATM vol</td><td>$\alpha > 0$</td></tr>
+                        <tr><td>Elasticity</td><td>$\beta$</td><td>Forward rate exponent</td><td>Backbone slope, Skew</td><td>$0 \le \beta \le 1$</td></tr>
+                        <tr><td>Correlation</td><td>$\rho$</td><td>Correlation (Rate vs. Vol)</td><td>Skew / Tilt</td><td>$-1 < \rho < 1$</td></tr>
+                        <tr><td>Vol of Vol</td><td>$\nu, v$</td><td>Volatility of volatility</td><td>Convexity / Curvature</td><td>$\nu \ge 0$</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <p class="text-gray-700 mb-4">$\beta=0$ implies Normal model, $\beta=1$ Log-normal. $\beta$ is often predetermined. Negative $\rho$ typically gives downward-sloping smile. Higher $\nu$ means more pronounced smile.</p>
+            
+            <h4 class="text-xl font-semibold my-3 text-center">Illustrative Parameter Impacts on Smile Shape</h4>
+            <div class="grid md:grid-cols-3 gap-4 text-center">
+                <div>
+                    <p class="font-semibold mb-1">Impact of $\alpha$</p>
+                    <div class="chart-container h-48 md:h-56"><canvas id="alphaImpactChart"></canvas></div>
+                    <p class="text-xs mt-1">Higher $\alpha$ shifts smile up.</p>
+                </div>
+                <div>
+                    <p class="font-semibold mb-1">Impact of $\rho$</p>
+                    <div class="chart-container h-48 md:h-56"><canvas id="rhoImpactChart"></canvas></div>
+                    <p class="text-xs mt-1">Changes skew/tilt.</p>
+                </div>
+                <div>
+                    <p class="font-semibold mb-1">Impact of $\nu$</p>
+                    <div class="chart-container h-48 md:h-56"><canvas id="nuImpactChart"></canvas></div>
+                    <p class="text-xs mt-1">Changes curvature.</p>
+                </div>
+            </div>
+        </section>
+
+        <section id="section3" class="content-section">
+            <h2 class="text-3xl font-semibold mb-6">3. Applying SABR to Swaption Pricing</h2>
+            <h3 class="text-2xl font-semibold mb-3">3.1 Modeling Forward Swap Rate Volatility</h3>
+            <p class="text-gray-700 mb-4">In swaption pricing, $F_t$ is the forward swap rate. A distinct set of SABR parameters ($\alpha, \beta, \rho, \nu$) is typically calibrated for each expiry-tenor pair (e.g., 1Yx10Y swaption).</p>
+
+            <h3 class="text-2xl font-semibold mb-3 mt-8">3.2 Hagan's Approximation for Implied Volatility</h3>
+            <p class="text-gray-700 mb-2">Hagan's formula rapidly calculates Black-equivalent implied volatility ($\sigma_{BSM}$). For lognormal volatility:</p>
+            <div class="formula text-sm mb-2">
+            $\sigma_{BSM}(F_0, K, T, \alpha, \beta, \rho, \nu) = \frac{\alpha}{ (F_0 K)^{(1-\beta)/2} [1 + \frac{(1-\beta)^2}{24}\ln^2(\frac{F_0}{K}) + \dots] } \times \frac{z}{\chi(z)} \times [1 + (\frac{\rho\beta\nu\alpha}{4(F_0K)^{(1-\beta)/2}} + \frac{(2-3\rho^2)\nu^2}{24})T + \dots]$<br>
+            where $z = \frac{\nu}{\alpha} (F_0 K)^{(1-\beta)/2} \ln(\frac{F_0}{K})$ and $\chi(z) = \ln(\frac{\sqrt{1-2\rho z + z^2} + z - \rho}{1-\rho})$.
+            </div>
+            <p class="text-gray-700 mb-2">ATM Volatility ($K=F_0$):</p>
+            <div class="formula text-sm mb-4">
+            $\sigma_{BSM}^{ATM} \approx \frac{\alpha}{F_0^{1-\beta}} [1 + (\frac{(1-\beta)^2\alpha^2}{24F_0^{2-2\beta}} + \frac{\rho\beta\nu\alpha}{4F_0^{1-\beta}} + \frac{(2-3\rho^2)\nu^2}{24})T]$
+            </div>
+            <p class="text-gray-700">Derived via singular perturbation theory, accurate for short maturities/low $\nu$. Normal implied vol ($\sigma_N$) versions also exist.</p>
+
+            <h3 class="text-2xl font-semibold mb-3 mt-8">3.3 Connection to Black's Model for Swaption Pricing</h3>
+            <p class="text-gray-700 mb-2">SABR generates $\sigma_{BSM}$, then Black's model prices the swaption.</p>
+            <p class="text-gray-700 font-semibold">Payer Swaption (Call):</p>
+            <div class="formula text-sm mb-2">$C = P(0,T) [F_0 N(d_1) - K N(d_2)]$</div>
+            <p class="text-gray-700 font-semibold">Receiver Swaption (Put):</p>
+            <div class="formula text-sm mb-4">$P = P(0,T) [K N(-d_2) - F_0 N(-d_1)]$</div>
+            <p class="text-gray-700 mb-2">where $d_1 = (\ln(F_0/K) + \frac{1}{2}\sigma_{BSM}^2 T) / (\sigma_{BSM} \sqrt{T})$, $d_2 = d_1 - \sigma_{BSM} \sqrt{T}$.</p>
+            <p class="text-gray-700">This two-step process leverages SABR's volatility dynamics with Black's standard framework.</p>
+            
+            <h4 class="text-xl font-semibold my-4 text-center">Swaption Pricing Flow with SABR</h4>
+            <div class="flex flex-col md:flex-row items-stretch justify-around space-y-2 md:space-y-0 md:space-x-2">
+                <div class="flex-1 flowchart-step">SABR Parameters<br>($\alpha, \beta, \rho, \nu$) & Market Inputs ($F_0, K, T$)</div>
+                <div class="flowchart-arrow self-center hidden md:block">&rarr;</div> <div class="flowchart-arrow self-center md:hidden">&darr;</div>
+                <div class="flex-1 flowchart-step">Hagan's Approx.</div>
+                <div class="flowchart-arrow self-center hidden md:block">&rarr;</div> <div class="flowchart-arrow self-center md:hidden">&darr;</div>
+                <div class="flex-1 flowchart-step">SABR Implied Vol ($\sigma_{BSM}$)</div>
+                <div class="flowchart-arrow self-center hidden md:block">&rarr;</div> <div class="flowchart-arrow self-center md:hidden">&darr;</div>
+                <div class="flex-1 flowchart-step">Black's Model</div>
+                <div class="flowchart-arrow self-center hidden md:block">&rarr;</div> <div class="flowchart-arrow self-center md:hidden">&darr;</div>
+                <div class="flex-1 flowchart-step !bg-green-100 !border-green-500">Swaption Price</div>
+            </div>
+        </section>
+
+        <section id="section4" class="content-section">
+            <h2 class="text-3xl font-semibold mb-6">4. Calibration of SABR to Market Data</h2>
+            <p class="text-gray-700 mb-4">Calibration finds SABR parameters that best reproduce observed market swaption prices/volatilities.</p>
+
+            <h3 class="text-2xl font-semibold mb-3">4.1 Market Data Inputs</h3>
+            <ul class="list-disc pl-5 space-y-1 text-gray-700 mb-4">
+                <li>Market-implied Black volatilities (European swaptions: expiry, tenor, strike).</li>
+                <li>ATM volatilities (often heavily weighted).</li>
+                <li>Current Forward Swap Rates.</li>
+                <li>Yield Curve / Discount Factors.</li>
+            </ul>
+            <p class="text-gray-700">SABR is calibrated independently for each expiry-tenor pair.</p>
+
+            <h3 class="text-2xl font-semibold mb-3 mt-8">4.2 Calibration Techniques</h3>
+            <p class="text-gray-700 mb-2">An optimization problem: minimize Sum of Squared Errors (SSE) between SABR vols and market vols.</p>
+            <div class="formula text-sm mb-4">$\text{SSE}(\alpha, \beta, \rho, \nu) = \sum w_i (\sigma_{SABR}(K_i) - \sigma_{Market}(K_i))^2$</div>
+            <p class="text-gray-700 mb-2">Algorithms: Levenberg-Marquardt, Nelder-Mead. $\beta$ often fixed.</p>
+            <p class="text-gray-700 font-semibold">Common Strategies (with $\beta$ fixed):</p>
+            <ul class="list-decimal pl-5 space-y-1 text-gray-700 mb-4">
+                <li>Directly calibrate $\alpha, \rho, \nu$.</li>
+                <li>Calibrate $\rho, \nu$ while implying $\alpha$ to match market ATM volatility (solves a cubic for $\alpha$). Ensures exact ATM fit.</li>
+            </ul>
+
+            <h3 class="text-2xl font-semibold mb-3 mt-8">4.3 Practical Challenges in Calibration</h3>
+            <ul id="calibrationChallengesList" class="list-none space-y-1">
+                <li class="interactive-list-item" data-details="Hard to calibrate from a single smile; often fixed. Wrong choice impacts hedges.">Choice/Fixing of $\beta$</li>
+                <li class="interactive-list-item" data-details="Local minima; parameters may not be stable over time.">Parameter Stability/Uniqueness</li>
+                <li class="interactive-list-item" data-details="Inaccurate for extreme strikes, long maturities, high $\nu$. Can lead to arbitrage.">Hagan's Approx. Limits</li>
+                <li class="interactive-list-item" data-details="Standard SABR needs extensions (Shifted/Free Boundary SABR).">Negative Interest Rates</li>
+                <li class="interactive-list-item" data-details="Sparse/noisy data for illiquid options makes robust calibration hard.">Data Sparsity/Quality</li>
+                <li class="interactive-list-item" data-details="Calibrating full cube is computationally intensive.">Computational Cost</li>
+                <li class="interactive-list-item" data-details="Interpolating params or vols must be smooth and arbitrage-free.">Parameter Interpolation</li>
+                <li class="interactive-list-item" data-details="Independent smile calibration doesn't guarantee arbitrage-free surface.">Arbitrage-Free Surface</li>
+            </ul>
+             <div id="calibrationChallengeDetails" class="details p-3 mt-2 bg-yellow-50 rounded">Select a challenge to see details.</div>
+        </section>
+
+        <section id="section5" class="content-section">
+            <h2 class="text-3xl font-semibold mb-6">5. Comparative Analysis: SABR vs. Black Model</h2>
+            <p class="text-gray-700 mb-4">SABR offers significant advantages over the simpler Black model, especially in capturing market realities.</p>
+            <div class="overflow-x-auto">
+                <table class="w-full parameter-table my-4">
+                    <thead>
+                        <tr><th>Feature</th><th>Black Model</th><th>SABR Model</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>Volatility Assumption</td><td>Constant</td><td>Stochastic</td></tr>
+                        <tr><td>Volatility Smile/Skew</td><td>Cannot capture (flat vol)</td><td>Captures via $\beta, \rho, \nu$</td></tr>
+                        <tr><td>Pricing Accuracy (OTM/ITM)</td><td>Poor if single ATM vol used</td><td>Generally better</td></tr>
+                        <tr><td>Hedging Consistency</td><td>Problematic</td><td>More consistent Greeks</td></tr>
+                        <tr><td>Negative Rates</td><td>Lognormal fails; Normal ok</td><td>Std. fails; Extensions exist</td></tr>
+                        <tr><td>Complexity</td><td>Very simple (1 parameter)</td><td>More complex (4+ params), Hagan's approx. helps</td></tr>
+                        <tr><td>Calibration</td><td>Trivial if vol known</td><td>Requires fitting to market smile</td></tr>
+                        <tr><td>Market Convention</td><td>Prices quoted in Black vols</td><td>Used to generate consistent Black vols</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <p class="text-gray-700">Essentially, SABR provides the smile-consistent volatility that Black's model lacks, acting as an intelligent interpolator for market volatilities.</p>
+        </section>
+    </div>
+
+    <footer class="text-center p-6 mt-8 bg-gray-800 text-white text-sm">
+        <p>Interactive SPA based on "SABR Interest Rate Modeling for Swaption Pricing" report.</p>
+        <p>&copy; 2024. For illustrative and educational purposes only.</p>
+    </footer>
+
+    <script>
+        document.querySelectorAll('.nav-link').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                document.querySelector(this.getAttribute('href')).scrollIntoView({
+                    behavior: 'smooth'
+                });
+                document.querySelectorAll('.nav-link').forEach(link => link.classList.remove('active'));
+                this.classList.add('active');
+            });
+        });
+
+        function toggleDetails(listId, detailsId) {
+            const listItems = document.querySelectorAll(`#${listId} .interactive-list-item`);
+            const detailsPane = document.getElementById(detailsId);
+            listItems.forEach(item => {
+                item.addEventListener('click', function() {
+                    const detailText = this.getAttribute('data-details');
+                    if (detailsPane.style.display === 'block' && detailsPane.innerHTML.includes(detailText)) {
+                        detailsPane.style.display = 'none';
+                        this.style.fontWeight = 'normal';
+                    } else {
+                        detailsPane.innerHTML = `<strong>${this.textContent.trim()}:</strong> ${detailText}`;
+                        detailsPane.style.display = 'block';
+                        listItems.forEach(li => li.style.fontWeight = 'normal');
+                        this.style.fontWeight = 'bold';
+                    }
+                });
+            });
+        }
+        toggleDetails('pricingFactorsList', 'pricingFactorDetails');
+        toggleDetails('calibrationChallengesList', 'calibrationChallengeDetails');
+        
+        // Chart.js Tooltip Callback for multiline labels
+        const tooltipTitleCallback = (tooltipItems) => {
+            const item = tooltipItems[0];
+            let label = item.chart.data.labels[item.dataIndex];
+            if (Array.isArray(label)) { return label.join(' '); }
+            return label;
+        };
+
+        const sharedChartOptions = {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: true, labels: { color: '#333333', font: { size: 10 } } },
+                tooltip: { 
+                    callbacks: { title: tooltipTitleCallback },
+                    backgroundColor: '#006699', titleColor: '#FFFFFF', bodyColor: '#F5F5F5'
+                }
+            },
+            scales: {
+                x: { ticks: { color: '#333333', font: {size: 10}}, grid: { display: false } },
+                y: { ticks: { color: '#333333', font: {size: 10}}, grid: { color: '#DDDDDD', borderDash: [2,3] } }
+            }
+        };
+
+        // Volatility Smile Chart
+        const volSmileCtx = document.getElementById('volatilitySmileChart').getContext('2d');
+        new Chart(volSmileCtx, {
+            type: 'line',
+            data: {
+                labels: ['K - 2σ', 'K - 1σ', 'ATM (K)', 'K + 1σ', 'K + 2σ'],
+                datasets: [{
+                    label: 'Market/SABR Implied Vol', data: [0.25, 0.22, 0.20, 0.225, 0.26],
+                    borderColor: '#FF9900', backgroundColor: 'rgba(255, 153, 0, 0.1)', tension: 0.4, fill: true
+                }, {
+                    label: 'Black-Scholes (Constant Vol)', data: [0.20, 0.20, 0.20, 0.20, 0.20],
+                    borderColor: '#66CCCC', borderDash: [5, 5], backgroundColor: 'rgba(102, 204, 204, 0.1)', tension: 0.1, fill: false
+                }]
+            }, options: sharedChartOptions
+        });
+
+        // Parameter Impact Charts
+        const baseStrikes = ['-100bps', '-50bps', 'ATM', '+50bps', '+100bps'];
+        const baseSmile = [0.23, 0.21, 0.20, 0.215, 0.24];
+
+        const alphaImpactCtx = document.getElementById('alphaImpactChart').getContext('2d');
+        new Chart(alphaImpactCtx, {
+            type: 'line', data: { labels: baseStrikes, datasets: [
+                { label: 'Low α', data: baseSmile.map(v => v*0.8), borderColor: '#66CCCC', fill: false, pointRadius: 2 },
+                { label: 'Base α', data: baseSmile, borderColor: '#FF9900', fill: false, pointRadius: 2 },
+                { label: 'High α', data: baseSmile.map(v => v*1.2), borderColor: '#006699', fill: false, pointRadius: 2 }
+            ]}, options: {...sharedChartOptions, plugins: {...sharedChartOptions.plugins, legend: {position: 'bottom', labels:{boxWidth:10, font:{size:8}}}}}
+        });
+        const rhoImpactCtx = document.getElementById('rhoImpactChart').getContext('2d');
+        new Chart(rhoImpactCtx, {
+            type: 'line', data: { labels: baseStrikes, datasets: [
+                { label: 'ρ < 0', data: [0.25,0.22,0.20,0.19,0.185], borderColor: '#66CCCC', fill: false, pointRadius: 2 },
+                { label: 'ρ = 0', data: baseSmile, borderColor: '#FF9900', fill: false, pointRadius: 2 },
+                { label: 'ρ > 0', data: [0.185,0.19,0.20,0.22,0.25], borderColor: '#006699', fill: false, pointRadius: 2 }
+            ]}, options: {...sharedChartOptions, plugins: {...sharedChartOptions.plugins, legend: {position: 'bottom', labels:{boxWidth:10, font:{size:8}}}}}
+        });
+        const nuImpactCtx = document.getElementById('nuImpactChart').getContext('2d');
+        new Chart(nuImpactCtx, {
+            type: 'line', data: { labels: baseStrikes, datasets: [
+                { label: 'Low ν', data: [0.21,0.205,0.20,0.205,0.21], borderColor: '#66CCCC', fill: false, pointRadius: 2 },
+                { label: 'Base ν', data: baseSmile, borderColor: '#FF9900', fill: false, pointRadius: 2 },
+                { label: 'High ν', data: [0.26,0.22,0.20,0.22,0.26], borderColor: '#006699', fill: false, pointRadius: 2 }
+            ]}, options: {...sharedChartOptions, plugins: {...sharedChartOptions.plugins, legend: {position: 'bottom', labels:{boxWidth:10, font:{size:8}}}}}
+        });
+
+        // Smooth scroll for nav and active link highlighting
+        const navLinks = document.querySelectorAll('nav a');
+        const sections = document.querySelectorAll('section');
+
+        window.addEventListener('scroll', () => {
+            let current = '';
+            sections.forEach(section => {
+                const sectionTop = section.offsetTop;
+                if (pageYOffset >= sectionTop - 60) { // 60px for nav height
+                    current = section.getAttribute('id');
+                }
+            });
+
+            navLinks.forEach(link => {
+                link.classList.remove('active');
+                if (link.getAttribute('href').substring(1) === current) {
+                    link.classList.add('active');
+                }
+            });
+        });
+
+    </script>
+</body>
+</html>
