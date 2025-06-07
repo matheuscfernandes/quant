@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LIBOR Market Model: An Interactive Guide</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Warm Neutrals & Muted Tones -->
+    <!-- Application Structure Plan: A thematic, single-page application designed for non-linear exploration. The structure progresses from a high-level introduction to the core mathematical model, its practical applications, a comparative analysis against other models, and concludes with its evolution in the post-LIBOR world. This structure was chosen to cater to different user needs, allowing a quick overview or a deep dive into specific areas. Key interactions include an interactive SDE explainer, a dynamic chart demonstrating volatility and correlation effects, a feature-comparison radar chart, and interactive cards for comparing LIBOR vs. SOFR. This design prioritizes user engagement and intuitive understanding of complex financial concepts over a rigid, linear presentation. -->
+    <!-- Visualization & Content Choices: 
+        1. LMM SDE: Goal: Demystify the math. Method: Interactive HTML text with tooltips. Interaction: Hover over terms to get plain-language explanations. Justification: Makes complex notation accessible. Library: Vanilla JS.
+        2. Volatility & Correlation: Goal: Visualize parameter impact. Method: Chart.js Line Chart showing simulated forward rate paths. Interaction: Sliders update chart parameters in real-time. Justification: Demonstrates abstract concepts visually and dynamically. Library: Chart.js.
+        3. Model Comparison: Goal: Easy feature analysis. Method: Chart.js Radar Chart. Interaction: Checkboxes to select and compare models (LMM, SRM, HJM). Justification: Radar charts are ideal for multi-attribute comparisons, and interaction makes it user-driven. Library: Chart.js.
+        4. LIBOR vs SOFR: Goal: Highlight key benchmark differences. Method: Interactive HTML cards. Interaction: Clicking a feature reveals details on both cards. Justification: Clean, organized, and interactive way to present comparative text. Library: Vanilla JS.
+    -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8f9fa;
+            color: #343a40;
+        }
+        .nav-link {
+            transition: color 0.3s ease, border-bottom-color 0.3s ease;
+            border-bottom: 2px solid transparent;
+        }
+        .nav-link:hover, .nav-link.active {
+            color: #4A5568;
+            border-bottom-color: #4A5568;
+        }
+        .card {
+            background-color: white;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -2px rgb(0 0 0 / 0.1);
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 350px;
+            max-height: 400px;
+        }
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 400px;
+            }
+        }
+        .math-term {
+            cursor: pointer;
+            font-family: 'Times New Roman', serif;
+            font-style: italic;
+            color: #2b6cb0;
+            border-bottom: 1px dotted #2b6cb0;
+            position: relative;
+        }
+        .tooltip {
+            visibility: hidden;
+            width: 220px;
+            background-color: #2d3748;
+            color: #fff;
+            text-align: center;
+            border-radius: 6px;
+            padding: 8px;
+            position: absolute;
+            z-index: 1;
+            bottom: 125%;
+            left: 50%;
+            margin-left: -110px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            font-family: 'Inter', sans-serif;
+            font-style: normal;
+        }
+        .math-term:hover .tooltip {
+            visibility: visible;
+            opacity: 1;
+        }
+        .pill-button {
+            transition: background-color 0.3s, color 0.3s;
+        }
+        .pill-button.active {
+            background-color: #4a5568;
+            color: white;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800">
+
+    <!-- Header & Navigation -->
+    <header class="bg-white/80 backdrop-blur-md sticky top-0 z-50 shadow-sm">
+        <nav class="container mx-auto px-6 py-4 flex justify-between items-center">
+            <h1 class="text-xl md:text-2xl font-bold text-gray-700">LMM Interactive Guide</h1>
+            <div class="hidden md:flex space-x-8">
+                <a href="#intro" class="nav-link font-medium text-gray-600 pb-1">Introduction</a>
+                <a href="#model" class="nav-link font-medium text-gray-600 pb-1">The Model</a>
+                <a href="#applications" class="nav-link font-medium text-gray-600 pb-1">Applications</a>
+                <a href="#comparison" class="nav-link font-medium text-gray-600 pb-1">Comparison</a>
+                <a href="#post-libor" class="nav-link font-medium text-gray-600 pb-1">Post-LIBOR</a>
+            </div>
+            <div class="md:hidden">
+                <select id="mobile-nav" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
+                    <option value="#intro">Introduction</option>
+                    <option value="#model">The Model</option>
+                    <option value="#applications">Applications</option>
+                    <option value="#comparison">Comparison</option>
+                    <option value="#post-libor">Post-LIBOR</option>
+                </select>
+            </div>
+        </nav>
+    </header>
+
+    <main class="container mx-auto px-6 py-8 md:py-12">
+
+        <!-- Section 1: Introduction -->
+        <section id="intro" class="mb-16 md:mb-24 text-center">
+            <h2 class="text-3xl md:text-4xl font-bold mb-4 text-gray-800">The LIBOR Market Model (LMM)</h2>
+            <p class="max-w-3xl mx-auto text-lg text-gray-600 mb-8">
+                An exploration of the Brace-Gatarek-Musiela (BGM) framework, a cornerstone of interest rate derivative pricing. This guide breaks down its core ideas, applications, and evolution in the modern financial landscape.
+            </p>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
+                <div class="card p-6">
+                    <h3 class="font-bold text-xl mb-2">Market-Focused</h3>
+                    <p class="text-gray-600">Unlike its predecessors, the LMM directly models observable forward LIBOR rates, the actual rates used in many financial contracts.</p>
+                </div>
+                <div class="card p-6">
+                    <h3 class="font-bold text-xl mb-2">Multi-Factor Dynamics</h3>
+                    <p class="text-gray-600">It captures complex, non-parallel movements of the yield curve (like twists and tilts) by modeling multiple rates simultaneously.</p>
+                </div>
+                <div class="card p-6">
+                    <h3 class="font-bold text-xl mb-2">Exotics Powerhouse</h3>
+                    <p class="text-gray-600">Its primary use case is the pricing and risk management of complex, path-dependent interest rate derivatives.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 2: The Model -->
+        <section id="model" class="mb-16 md:mb-24">
+            <h2 class="text-3xl md:text-4xl font-bold mb-4 text-center">Inside the Model</h2>
+            <p class="max-w-3xl mx-auto text-lg text-gray-600 mb-12 text-center">
+                The LMM is built on a specific mathematical foundation. It describes how forward interest rates evolve over time using a Stochastic Differential Equation (SDE). Below, you can interact with its core components to understand their roles.
+            </p>
+
+            <div class="card p-6 md:p-8 mb-12">
+                <h3 class="font-semibold text-2xl mb-4 text-center">The LMM Stochastic Differential Equation</h3>
+                <p class="text-center text-gray-600 mb-6">Hover over the mathematical terms below to see what they represent in plain English.</p>
+                <div class="bg-gray-100 p-6 rounded-lg text-center text-xl md:text-2xl font-mono overflow-x-auto">
+                    <span><sup>dL<sub>i</sub>(t)</sup>&frasl;<sub>L<sub>i</sub>(t)</sub> = </span>
+                    <span class="math-term">
+                        &mu;<sub>i</sub>(t)dt
+                        <span class="tooltip"><b>Drift (&mu;<sub>i</sub>):</b> The expected change in the forward rate. Its complex form is dictated by the no-arbitrage principle, linking it to the volatilities and correlations of all other forward rates.</span>
+                    </span>
+                    <span> + </span>
+                    <span class="math-term">
+                        &sigma;<sub>i</sub>(t)
+                        <span class="tooltip"><b>Volatility (&sigma;<sub>i</sub>):</b> The magnitude of the random fluctuations for each forward rate. This is a key parameter calibrated to market option prices (caps).</span>
+                    </span>
+                    <span class="math-term">
+                        dW<sub>i</sub>(t)
+                        <span class="tooltip"><b>Wiener Process (dW<sub>i</sub>):</b> The source of randomness. These are correlated for different forward rates, causing them to move together in a structured way.</span>
+                    </span>
+                </div>
+            </div>
+
+            <div class="card p-6 md:p-8">
+                <h3 class="font-semibold text-2xl mb-2 text-center">Volatility & Correlation Explorer</h3>
+                <p class="text-center text-gray-600 mb-8">
+                    Volatility and correlation are the engine of the LMM. Volatility determines how much each rate moves, while correlation determines how much they move together. Use the sliders to see how adjusting these parameters, based on common functional forms, impacts the simulated paths of forward rates.
+                </p>
+                <div class="chart-container">
+                    <canvas id="volatilityChart"></canvas>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
+                    <div>
+                        <label for="volHump" class="block text-sm font-medium text-gray-700">Volatility Hump (Term: b)</label>
+                        <input id="volHump" type="range" min="0" max="0.1" step="0.01" value="0.05" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                        <div class="text-xs text-gray-500 text-center mt-1">Adjusts the hump in the volatility term structure.</div>
+                    </div>
+                    <div>
+                        <label for="correlation" class="block text-sm font-medium text-gray-700">Correlation Decay (&beta;)</label>
+                        <input id="correlation" type="range" min="0.1" max="1.5" step="0.1" value="0.5" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                        <div class="text-xs text-gray-500 text-center mt-1">Controls how quickly correlation between rates decays with maturity distance.</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 3: Applications -->
+        <section id="applications" class="mb-16 md:mb-24">
+            <h2 class="text-3xl md:text-4xl font-bold mb-4 text-center">Practical Applications</h2>
+            <p class="max-w-3xl mx-auto text-lg text-gray-600 mb-12 text-center">
+                The LMM is not just a theoretical exercise; it's a workhorse for pricing and managing the risk of real-world financial instruments. Its ability to model the entire forward curve makes it especially powerful for derivatives with complex payoffs.
+            </p>
+            <div class="w-full max-w-4xl mx-auto">
+                <div class="flex justify-center mb-8 bg-gray-200 rounded-full p-1">
+                    <button class="pill-button w-full py-2 px-4 rounded-full font-semibold text-gray-600 active" data-tab="caps">Caps & Floors</button>
+                    <button class="pill-button w-full py-2 px-4 rounded-full font-semibold text-gray-600" data-tab="swaptions">Swaptions</button>
+                    <button class="pill-button w-full py-2 px-4 rounded-full font-semibold text-gray-600" data-tab="exotics">Exotic Derivatives</button>
+                </div>
+                <div id="application-content">
+                    <div class="card p-8 tab-content" id="content-caps">
+                        <h3 class="font-bold text-2xl mb-3">Caps & Floors</h3>
+                        <p class="text-gray-600">A primary strength of the LMM is its natural consistency with the Black-76 formula, the market standard for pricing interest rate caps and floors. A cap is a series of call options (caplets) on a forward rate. The LMM is designed so that the price of each individual caplet it produces matches the Black-76 price. This makes calibration of the model's volatility parameters directly to market cap prices straightforward and is a key reason for its adoption.</p>
+                    </div>
+                    <div class="card p-8 tab-content hidden" id="content-swaptions">
+                        <h3 class="font-bold text-2xl mb-3">European Swaptions</h3>
+                        <p class="text-gray-600">A swaption is an option to enter into an interest rate swap. Its value depends on the joint movement of several forward rates. Because a sum of log-normal variables is not itself log-normal, there's no simple formula for swaption prices under the LMM. Pricing typically requires Monte Carlo simulation. Market swaption prices are crucial for calibrating the LMM's correlation structure, which governs how different parts of the yield curve move together.</p>
+                    </div>
+                    <div class="card p-8 tab-content hidden" id="content-exotics">
+                        <h3 class="font-bold text-2xl mb-3">Exotic Derivatives</h3>
+                        <p class="text-gray-600">This is where the LMM truly shines. Exotic derivatives have complex, often path-dependent payoffs that simple models cannot handle. The LMM's ability to simulate the entire forward curve allows it to price instruments like:</p>
+                        <ul class="list-disc list-inside mt-4 space-y-2 text-gray-600">
+                            <li><b>Bermudan Swaptions:</b> Swaptions with multiple, pre-specified exercise dates.</li>
+                            <li><b>Range Accrual Notes:</b> Pay coupons only when a reference rate stays within a specified range.</li>
+                            <li><b>Constant Maturity Swap (CMS) Products:</b> Derivatives linked to swap rates of a constant tenor, which are highly sensitive to the yield curve's shape.</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 4: Comparison -->
+        <section id="comparison" class="mb-16 md:mb-24">
+            <h2 class="text-3xl md:text-4xl font-bold mb-4 text-center">Model Comparison</h2>
+            <p class="max-w-3xl mx-auto text-lg text-gray-600 mb-12 text-center">
+                The LMM did not emerge in a vacuum. It evolved from earlier models and has its own distinct strengths and weaknesses. Select the models below to compare their key characteristics on the radar chart.
+            </p>
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+                <div class="lg:col-span-2 card p-6 md:p-8">
+                    <div class="chart-container h-[400px] md:h-[500px]">
+                        <canvas id="comparisonChart"></canvas>
+                    </div>
+                </div>
+                <div class="card p-6">
+                    <h3 class="font-semibold text-xl mb-4">Select Models to Compare</h3>
+                    <div class="space-y-3" id="comparison-controls">
+                        <label class="flex items-center space-x-3">
+                            <input type="checkbox" class="h-5 w-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" data-model="lmm" checked>
+                            <span class="text-gray-700">LIBOR Market Model (LMM)</span>
+                        </label>
+                        <label class="flex items-center space-x-3">
+                            <input type="checkbox" class="h-5 w-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" data-model="srm" checked>
+                            <span class="text-gray-700">Short-Rate Models (SRM)</span>
+                        </label>
+                        <label class="flex items-center space-x-3">
+                            <input type="checkbox" class="h-5 w-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" data-model="hjm">
+                            <span class="text-gray-700">HJM Framework</span>
+                        </label>
+                    </div>
+                    <p class="text-xs text-gray-500 mt-4">This chart scores each model on a relative scale from 1 (Low) to 5 (High) for each characteristic. </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 5: The Post-LIBOR Era -->
+        <section id="post-libor" class="mb-8">
+            <h2 class="text-3xl md:text-4xl font-bold mb-4 text-center">The Post-LIBOR Era</h2>
+            <p class="max-w-3xl mx-auto text-lg text-gray-600 mb-12 text-center">
+                The global transition from LIBOR to new benchmarks like the Secured Overnight Financing Rate (SOFR) has fundamentally altered the landscape. This is not a simple "find and replace" for models. Click on the features below to see the critical differences.
+            </p>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-5xl mx-auto">
+                <div class="card p-6">
+                    <h3 class="font-bold text-2xl text-center mb-4">LIBOR (Legacy)</h3>
+                    <div id="libor-features" class="space-y-2"></div>
+                </div>
+                <div class="card p-6">
+                    <h3 class="font-bold text-2xl text-center mb-4">SOFR (New Standard)</h3>
+                    <div id="sofr-features" class="space-y-2"></div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="bg-gray-800 text-white mt-16">
+        <div class="container mx-auto px-6 py-4 text-center">
+            <p>Matheus C Fernandes</p>
+            <p class="text-sm text-gray-400"></p>
+        </div>
+    </footer>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            // --- Mobile Navigation ---
+            const mobileNav = document.getElementById('mobile-nav');
+            mobileNav.addEventListener('change', () => {
+                window.location.hash = mobileNav.value;
+            });
+            
+            // --- Section Scrolling & Active Nav Link ---
+            const sections = document.querySelectorAll('section');
+            const navLinks = document.querySelectorAll('.nav-link');
+            
+            const observerOptions = {
+                root: null,
+                rootMargin: '0px',
+                threshold: 0.3
+            };
+
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        navLinks.forEach(link => {
+                            link.classList.remove('active');
+                            if (link.getAttribute('href').substring(1) === entry.target.id) {
+                                link.classList.add('active');
+                                mobileNav.value = `#${entry.target.id}`;
+                            }
+                        });
+                    }
+                });
+            }, observerOptions);
+
+            sections.forEach(section => {
+                observer.observe(section);
+            });
+
+            // --- Volatility & Correlation Chart ---
+            const volChartCtx = document.getElementById('volatilityChart').getContext('2d');
+            let volChart;
+            const volHumpSlider = document.getElementById('volHump');
+            const correlationSlider = document.getElementById('correlation');
+
+            function generateForwardRatePaths(numPaths, numSteps, initialRates, volFunc, corrFunc) {
+                const paths = Array(numPaths).fill(0).map(() => [initialRates]);
+                const dt = 1 / numSteps;
+
+                for (let i = 0; i < numPaths; i++) {
+                    for (let t = 0; t < numSteps - 1; t++) {
+                        const currentRates = paths[i][t];
+                        const nextRates = [];
+                        const randomShocks = Array(currentRates.length).fill(0).map(() => Math.random() * 2 - 1); // Simplified random numbers
+                        for (let j = 0; j < currentRates.length; j++) {
+                            const volatility = volFunc(j / currentRates.length);
+                            let correlatedShock = 0;
+                            for (let k = 0; k < currentRates.length; k++) {
+                                correlatedShock += corrFunc(j, k) * randomShocks[k];
+                            }
+                            // Simplified SDE, ignoring drift for visual purposes
+                            const dL = volatility * correlatedShock * Math.sqrt(dt);
+                            nextRates.push(Math.max(0, currentRates[j] * (1 + dL)));
+                        }
+                        paths[i].push(nextRates);
+                    }
+                }
+                return paths.map(path => path.map(step => step[Math.floor(step.length / 2)])); // Plotting mid-rate
+            }
+            
+            function updateVolatilityChart() {
+                const b = parseFloat(volHumpSlider.value);
+                const beta = parseFloat(correlationSlider.value);
+                const initialRates = Array(20).fill(0).map((_, i) => 0.02 + i * 0.001);
+
+                // Rebonato-like volatility function
+                const volFunc = (maturity) => (0.05 + b * maturity) * Math.exp(-1.5 * maturity) + 0.15;
+                // Exponential correlation
+                const corrFunc = (i, j) => Math.exp(-beta * Math.abs(i - j));
+
+                const paths = generateForwardRatePaths(5, 20, initialRates, volFunc, corrFunc);
+
+                const labels = Array(20).fill(0).map((_, i) => `T${i}`);
+                const datasets = paths.map((path, i) => ({
+                    label: `Path ${i + 1}`,
+                    data: path,
+                    borderColor: `rgba(74, 85, 104, ${0.3 + (i/paths.length)*0.5})`,
+                    borderWidth: 1.5,
+                    pointRadius: 0,
+                    tension: 0.4
+                }));
+
+                if (volChart) {
+                    volChart.data.labels = labels;
+                    volChart.data.datasets = datasets;
+                    volChart.update();
+                } else {
+                    volChart = new Chart(volChartCtx, {
+                        type: 'line',
+                        data: { labels, datasets },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: { display: false },
+                                title: {
+                                    display: true,
+                                    text: 'Simulated Forward Rate Paths'
+                                }
+                            },
+                            scales: {
+                                y: {
+                                    title: { display: true, text: 'Forward Rate' }
+                                },
+                                x: {
+                                    title: { display: true, text: 'Time Step' }
+                                }
+                            }
+                        }
+                    });
+                }
+            }
+            volHumpSlider.addEventListener('input', updateVolatilityChart);
+            correlationSlider.addEventListener('input', updateVolatilityChart);
+            updateVolatilityChart();
+
+
+            // --- Applications Tabs ---
+            const tabButtons = document.querySelectorAll('.pill-button');
+            const tabContents = document.querySelectorAll('.tab-content');
+            tabButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    tabButtons.forEach(btn => btn.classList.remove('active'));
+                    button.classList.add('active');
+                    const tabId = button.getAttribute('data-tab');
+                    tabContents.forEach(content => {
+                        content.classList.add('hidden');
+                        if (content.id === `content-${tabId}`) {
+                            content.classList.remove('hidden');
+                        }
+                    });
+                });
+            });
+
+            // --- Comparison Chart ---
+            const comparisonCtx = document.getElementById('comparisonChart').getContext('2d');
+            const comparisonData = {
+                labels: ['Market Consistent', 'Observable Inputs', 'Realistic Dynamics', 'Tractability', 'Exotic Pricing'],
+                datasets: {
+                    lmm: {
+                        label: 'LMM',
+                        data: [5, 5, 4, 2, 5],
+                        borderColor: 'rgb(59, 130, 246)',
+                        backgroundColor: 'rgba(59, 130, 246, 0.2)',
+                    },
+                    srm: {
+                        label: 'Short-Rate Models',
+                        data: [2, 1, 2, 5, 1],
+                        borderColor: 'rgb(239, 68, 68)',
+                        backgroundColor: 'rgba(239, 68, 68, 0.2)',
+                    },
+                    hjm: {
+                        label: 'HJM Framework',
+                        data: [4, 1, 5, 1, 4],
+                        borderColor: 'rgb(16, 185, 129)',
+                        backgroundColor: 'rgba(16, 185, 129, 0.2)',
+                    }
+                }
+            };
+
+            let comparisonChart = new Chart(comparisonCtx, {
+                type: 'radar',
+                data: {
+                    labels: comparisonData.labels,
+                    datasets: Object.values(comparisonData.datasets)
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        r: {
+                            angleLines: { color: 'rgba(0, 0, 0, 0.1)' },
+                            grid: { color: 'rgba(0, 0, 0, 0.1)' },
+                            pointLabels: { font: { size: 12 } },
+                            min: 0,
+                            max: 5,
+                            ticks: {
+                                stepSize: 1,
+                                backdropColor: 'transparent'
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: { position: 'top' }
+                    }
+                }
+            });
+
+            document.getElementById('comparison-controls').addEventListener('change', () => {
+                const activeModels = [];
+                document.querySelectorAll('#comparison-controls input:checked').forEach(input => {
+                    activeModels.push(comparisonData.datasets[input.dataset.model]);
+                });
+                comparisonChart.data.datasets = activeModels;
+                comparisonChart.update();
+            });
+
+            // --- Post-LIBOR Interactive Cards ---
+            const featureData = {
+                risk: {
+                    title: "Risk Profile",
+                    libor: "Included bank credit risk, as it was based on unsecured interbank lending.",
+                    sofr: "Nearly risk-free, as it's secured by U.S. Treasury collateral."
+                },
+                rate_type: {
+                    title: "Rate Type",
+                    libor: "Forward-looking term rates (e.g., 3-month LIBOR) were known at the start of the interest period.",
+                    sofr: "Primarily a backward-looking overnight rate. Term rates are derived by compounding."
+                },
+                calculation: {
+                    title: "Calculation",
+                    libor: "Based on submissions from a panel of banks (estimates), which proved susceptible to manipulation.",
+                    sofr: "Based on a large volume of actual, observable repo market transactions."
+                },
+                volatility: {
+                    title: "Volatility Drivers",
+                    libor: "Influenced by monetary policy and interbank credit stress.",
+                    sofr: "Driven by repo market supply/demand and Fed operations. Can spike at month/quarter-ends."
+                }
+            };
+            
+            const liborContainer = document.getElementById('libor-features');
+            const sofrContainer = document.getElementById('sofr-features');
+            let activeFeature = null;
+
+            function renderFeatures() {
+                liborContainer.innerHTML = '';
+                sofrContainer.innerHTML = '';
+
+                Object.keys(featureData).forEach(key => {
+                    const feature = featureData[key];
+                    const liborItem = document.createElement('div');
+                    liborItem.className = 'border border-gray-200 rounded-lg p-3 cursor-pointer hover:bg-gray-100';
+                    liborItem.innerHTML = `<h4 class="font-semibold">${feature.title}</h4><p class="text-sm text-gray-600 mt-1 hidden">${feature.libor}</p>`;
+                    
+                    const sofrItem = document.createElement('div');
+                    sofrItem.className = 'border border-gray-200 rounded-lg p-3 cursor-pointer hover:bg-gray-100';
+                    sofrItem.innerHTML = `<h4 class="font-semibold">${feature.title}</h4><p class="text-sm text-gray-600 mt-1 hidden">${feature.sofr}</p>`;
+
+                    liborItem.addEventListener('click', () => toggleFeature(key));
+                    sofrItem.addEventListener('click', () => toggleFeature(key));
+
+                    liborContainer.appendChild(liborItem);
+                    sofrContainer.appendChild(sofrItem);
+                });
+            }
+
+            function toggleFeature(key) {
+                if (activeFeature === key) {
+                    activeFeature = null;
+                } else {
+                    activeFeature = key;
+                }
+                updateFeatureVisibility();
+            }
+
+            function updateFeatureVisibility() {
+                const allLiborItems = liborContainer.querySelectorAll('div');
+                const allSofrItems = sofrContainer.querySelectorAll('div');
+
+                Object.keys(featureData).forEach((key, index) => {
+                    const liborDesc = allLiborItems[index].querySelector('p');
+                    const sofrDesc = allSofrItems[index].querySelector('p');
+                    if (key === activeFeature) {
+                        liborDesc.classList.remove('hidden');
+                        sofrDesc.classList.remove('hidden');
+                        allLiborItems[index].classList.add('bg-blue-50');
+                        allSofrItems[index].classList.add('bg-blue-50');
+                    } else {
+                        liborDesc.classList.add('hidden');
+                        sofrDesc.classList.add('hidden');
+                        allLiborItems[index].classList.remove('bg-blue-50');
+                        allSofrItems[index].classList.remove('bg-blue-50');
+                    }
+                });
+            }
+
+            renderFeatures();
+
+        });
+    </script>
+</body>
+</html>
